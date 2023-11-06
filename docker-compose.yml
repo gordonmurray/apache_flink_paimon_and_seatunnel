@@ -48,8 +48,10 @@ services:
           replicas: 2
 
   seatunnel:
-    image: seatunnel
+    image: seatunnel:2.3.0-flink-1.17
+    container_name: seatunnel
     environment:
       - CONFIG=/config/seatunnel.conf
     volumes:
-      - ./config:/config
+      - ./seatunnel:/config
+    command: jobmanager
