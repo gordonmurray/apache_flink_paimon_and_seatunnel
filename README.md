@@ -1,8 +1,8 @@
 # Apache Flink, Paimon and SeaTunnel
 
+![Static Badge](https://img.shields.io/badge/Just_testing-Not_production_ready-red)
+
 Seeing if Seatunnel can read data stored in s3 created using Flink and Paimon
-
-
 
 ### Build a SeaTunnel image
 
