@@ -6,12 +6,24 @@ Seeing if Seatunnel can read data stored in s3 created using Flink and Paimon
 
 ### Build a SeaTunnel image
 
-At the time of writing, SeaTunnel doesn't have an up to date image on Dockerhub, so use the following to create a local image:
+The stack uses a local SeaTunnel image. Build it with:
 
 ```
 cd seatunnel
 
-docker build -t seatunnel:2.3.0-flink-1.17 -f Dockerfile .
+docker build -t seatunnel:2.3.11 -f Dockerfile .
 ```
 
+Compose can also build it for you with `docker compose build seatunnel`.
+
 Once built, run `docker compose up -d`
+
+### Smoke test the SeaTunnel image
+
+To confirm the image starts and loads its config, run the bundled sample job, which generates a few fake rows and prints them to the console:
+
+```
+docker compose run --rm seatunnel
+```
+
+You should see rows logged through the console sink and the job finish without errors.

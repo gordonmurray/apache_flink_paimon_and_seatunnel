@@ -92,13 +92,13 @@ services:
           replicas: 2
 
   seatunnel:
-    image: seatunnel:2.3.0-flink-1.17
+    build:
+      context: ./seatunnel
+    image: seatunnel:2.3.11
     container_name: seatunnel
-    environment:
-      - CONFIG=/config/seatunnel.conf
     volumes:
       - ./seatunnel:/config
-    command: jobmanager
+    command: ["/opt/seatunnel/bin/seatunnel.sh", "--config", "/config/seatunnel.conf", "-m", "local"]
 
 volumes:
   minio-data:
