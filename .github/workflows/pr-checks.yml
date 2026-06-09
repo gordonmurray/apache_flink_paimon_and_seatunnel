@@ -1,0 +1,52 @@
+name: PR checks
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  MINIO_ROOT_USER: minioadmin
+  MINIO_ROOT_PASSWORD: minioadmin
+  PAIMON_BUCKET: paimon
+  ICEBERG_BUCKET: iceberg
+  S3_ENDPOINT: http://minio:9000
+
+jobs:
+  validate:
+    name: Validate project files
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Validate Docker Compose config
+        run: docker compose config
+
+      - name: Check shell scripts
+        run: |
+          bash -n scripts/*.sh
+          shellcheck scripts/*.sh
+
+      - name: Dry-run Makefile targets
+        run: |
+          make -n up submit verify cdc-change seatunnel-read seatunnel-iceberg verify-iceberg down
+
+  build-seatunnel:
+    name: Build SeaTunnel image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build SeaTunnel image
+        run: docker compose build seatunnel
