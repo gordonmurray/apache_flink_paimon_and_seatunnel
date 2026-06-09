@@ -1,0 +1,2 @@
+# Connector jars are fetched on demand by scripts/download_jars.sh, not committed.
+jars/*.jar
