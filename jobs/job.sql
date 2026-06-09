@@ -1,3 +1,7 @@
+-- Paimon commits new data on each Flink checkpoint, so checkpointing must be on
+-- for the CDC snapshot and changes to land in the table.
+SET 'execution.checkpointing.interval' = '10s';
+
 USE CATALOG default_catalog;
 
 DROP CATALOG IF EXISTS s3_catalog;
