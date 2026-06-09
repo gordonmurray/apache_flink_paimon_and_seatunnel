@@ -18,6 +18,38 @@ Compose can also build it for you with `docker compose build seatunnel`.
 
 Once built, run `docker compose up -d`
 
+### Submit the Flink CDC job
+
+`docker compose up -d` starts MariaDB, MinIO and the Flink cluster, but it does not submit any work. Submit the CDC pipeline in `jobs/job.sql` with:
+
+```
+make submit
+```
+
+This waits for Flink, MinIO and MariaDB to be ready, then runs the Flink SQL client against `jobs/job.sql`. The job streams the MariaDB `products` table into the Paimon `myproducts` table on MinIO.
+
+Open the Flink UI at http://localhost:8081 and look under **Running Jobs**; you should see `insert-into_s3_catalog.paimon_database.myproducts` in the `RUNNING` state.
+
+### Verify the data landed in Paimon
+
+Give the job a few seconds to take its first checkpoint (Paimon commits on checkpoint), then read the table back:
+
+```
+make verify
+```
+
+This runs a one-off batch query against the Paimon table and prints a row count and a sample, for example:
+
+```
++-----------+
+| row_count |
++-----------+
+|        30 |
++-----------+
+```
+
+To tear everything down and remove the volumes, run `make down`.
+
 ### Smoke test the SeaTunnel image
 
 To confirm the image starts and loads its config, run the bundled sample job, which generates a few fake rows and prints them to the console:

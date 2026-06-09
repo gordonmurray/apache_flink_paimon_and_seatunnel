@@ -61,7 +61,7 @@ services:
       - ./jars/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar:/opt/flink/lib/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar
       - ./jars/flink-s3-fs-hadoop-1.17.1.jar:/opt/flink/plugins/s3-fs-hadoop/flink-s3-fs-hadoop-1.17.1.jar
       - ./jars/paimon-s3-0.6-20231027.002013-54.jar:/opt/flink/lib/paimon-s3-0.6-20231027.002013-54.jar
-      - ./jobs/job.sql:/opt/flink/job.sql
+      - ./jobs:/opt/flink/jobs
     deploy:
           replicas: 1
 
@@ -96,6 +96,7 @@ services:
       context: ./seatunnel
     image: seatunnel:2.3.11
     container_name: seatunnel
+    profiles: ["seatunnel"]
     volumes:
       - ./seatunnel:/config
     command: ["/opt/seatunnel/bin/seatunnel.sh", "--config", "/config/seatunnel.conf", "-m", "local"]
