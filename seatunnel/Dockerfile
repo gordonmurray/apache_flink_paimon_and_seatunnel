@@ -16,4 +16,8 @@ RUN wget -q "https://dlcdn.apache.org/seatunnel/${SEATUNNEL_VERSION}/apache-seat
 COPY plugin_config "${SEATUNNEL_HOME}/config/plugin_config"
 RUN cd "${SEATUNNEL_HOME}" && sh bin/install-plugin.sh "${SEATUNNEL_VERSION}"
 
+# The base image runs as the flink user, but SEATUNNEL_HOME is root-owned. The
+# Zeta cluster writes a rolling log file under logs/, so make it writable.
+RUN mkdir -p "${SEATUNNEL_HOME}/logs" && chmod -R 777 "${SEATUNNEL_HOME}/logs"
+
 WORKDIR ${SEATUNNEL_HOME}

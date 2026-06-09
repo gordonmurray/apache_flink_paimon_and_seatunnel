@@ -1,0 +1,82 @@
+{
+  "title": "Flink + SeaTunnel pipeline",
+  "uid": "demo-pipeline",
+  "schemaVersion": 39,
+  "editable": true,
+  "time": { "from": "now-15m", "to": "now" },
+  "refresh": "5s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Flink running jobs",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "max(flink_jobmanager_numRunningJobs)" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Completed checkpoints",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "max(flink_jobmanager_job_numberOfCompletedCheckpoints)" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "SeaTunnel jobs on the cluster",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "max(job_count)" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Targets up",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "sum(up)" }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Records per second through Flink",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(flink_taskmanager_job_task_numRecordsOut[1m]))" }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "JVM heap used (JobManager and TaskManagers)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "flink_jobmanager_Status_JVM_Memory_Heap_Used", "legendFormat": "jobmanager" },
+        { "refId": "B", "expr": "sum(flink_taskmanager_Status_JVM_Memory_Heap_Used)", "legendFormat": "taskmanagers" }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "SeaTunnel tasks completed on the cluster",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
+      "targets": [
+        { "refId": "A", "expr": "max(job_thread_pool_completedTask_total)", "legendFormat": "completed tasks" }
+      ]
+    }
+  ]
+}
