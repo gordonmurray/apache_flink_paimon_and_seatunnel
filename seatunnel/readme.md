@@ -1,3 +1,5 @@
+Build the SeaTunnel image used by the stack:
 
-
-docker build -t seatunnel:2.3.0-flink-1.17 -f Dockerfile .
+```
+docker build -t seatunnel:2.3.11 -f Dockerfile .
+```
