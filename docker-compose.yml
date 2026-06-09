@@ -12,13 +12,48 @@ services:
     ports:
       - "3306:3306"
 
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+
+  createbuckets:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do
+        echo 'waiting for minio'; sleep 1;
+      done;
+      mc mb --ignore-existing local/${PAIMON_BUCKET};
+      mc anonymous set public local/${PAIMON_BUCKET};
+      echo 'bucket ${PAIMON_BUCKET} ready';
+      "
+
   jobmanager:
     image: flink:1.17.1
     environment:
       - JOB_MANAGER_RPC_ADDRESS=jobmanager
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        s3.endpoint: ${S3_ENDPOINT}
+        s3.access-key: ${MINIO_ROOT_USER}
+        s3.secret-key: ${MINIO_ROOT_PASSWORD}
+        s3.path.style.access: true
     ports:
       - "8081:8081"
     command: jobmanager
+    depends_on:
+      - minio
     volumes:
       - ./jars/flink-sql-connector-mysql-cdc-2.4.1.jar:/opt/flink/lib/flink-sql-connector-mysql-cdc-2.4.1.jar
       - ./jars/flink-connector-jdbc-3.1.0-1.17.jar:/opt/flink/lib/flink-connector-jdbc-3.1.0-1.17.jar
@@ -34,8 +69,17 @@ services:
     image: flink:1.17.1
     environment:
       - JOB_MANAGER_RPC_ADDRESS=jobmanager
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        s3.endpoint: ${S3_ENDPOINT}
+        s3.access-key: ${MINIO_ROOT_USER}
+        s3.secret-key: ${MINIO_ROOT_PASSWORD}
+        s3.path.style.access: true
+        taskmanager.numberOfTaskSlots: 2
     depends_on:
       - jobmanager
+      - minio
     command: taskmanager
     volumes:
       - ./jars/flink-sql-connector-mysql-cdc-2.4.1.jar:/opt/flink/lib/flink-sql-connector-mysql-cdc-2.4.1.jar
@@ -55,3 +99,6 @@ services:
     volumes:
       - ./seatunnel:/config
     command: jobmanager
+
+volumes:
+  minio-data:
