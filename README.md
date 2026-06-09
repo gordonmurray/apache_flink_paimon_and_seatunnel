@@ -1,10 +1,12 @@
-# Apache Flink, Paimon and SeaTunnel
+# Apache Flink, Paimon, SeaTunnel and Iceberg on SeaweedFS
 
-A working example that answers one question: can Apache SeaTunnel read data that Apache Flink and Apache Paimon wrote to S3-compatible storage, and can it then move that data on into Apache Iceberg?
+A working example of a streaming lakehouse you can run end to end on your own machine: change data capture from MariaDB into Paimon with Flink, then SeaTunnel reading Paimon and writing Iceberg, all on SeaweedFS, with Prometheus and Grafana over the top.
 
-The whole stack runs locally on Docker Compose against SeaweedFS, so there is no real AWS bucket and no manual credential setup. It is a learning and testing project, not a production-ready pattern.
+It answers a concrete question: can SeaTunnel read data that Flink and Paimon wrote to S3-compatible storage, and move it on into Iceberg? It can, and every step has a command that shows the data is real.
 
-## What the demo proves
+The whole stack runs on Docker Compose against SeaweedFS, so there is no AWS account, no real bucket, and no manual credential setup.
+
+## What it does
 
 The full path runs end to end:
 
@@ -75,7 +77,7 @@ This runs `scripts/download_jars.sh`, which downloads each jar from a pinned Mav
 
 ### 2. Build the SeaTunnel image
 
-There is no fully up to date SeaTunnel image on Docker Hub for this setup, so the stack builds one locally from `seatunnel/Dockerfile`. It installs SeaTunnel 2.3.13 and only the connectors the demo needs (fake, console, paimon and iceberg).
+There is no fully up to date SeaTunnel image on Docker Hub for this setup, so the stack builds one locally from `seatunnel/Dockerfile`. It installs SeaTunnel 2.3.13 and only the connectors this example needs (fake, console, paimon and iceberg).
 
 ```
 docker compose build seatunnel
@@ -252,30 +254,9 @@ You should see rows logged through the console sink and the job finish without e
 | `make logs` | Follow the Flink JobManager logs |
 | `make down` | Stop the stack and remove volumes |
 
-## Repository layout
+## Good to know
 
-| Path | Purpose |
-| --- | --- |
-| `docker-compose.yml` | The full stack: MariaDB, SeaweedFS, bucket init, Flink and SeaTunnel |
-| `.env` | SeaweedFS credentials, endpoint and bucket names |
-| `sql/seed.sql` | Creates and seeds the MariaDB `products` table |
-| `sql/mariadb.cnf` | Enables ROW-format binlog for CDC |
-| `jobs/job.sql` | Flink CDC pipeline into Paimon |
-| `jobs/verify.sql` | Batch read of the Paimon table |
-| `jars/` | Connector jars mounted into Flink, downloaded by `scripts/download_jars.sh` (not committed) |
-| `seatunnel/Dockerfile` | Builds the local SeaTunnel image |
-| `seatunnel/plugin_config` | The SeaTunnel connectors to install |
-| `seatunnel/*.conf` | SeaTunnel job configs (fake sample, Paimon read, Paimon to Iceberg, Iceberg read) |
-| `seaweedfs/s3.json` | SeaweedFS S3 identity (access key and secret) |
-| `seaweedfs/create-buckets.sh` | Creates the demo buckets in SeaweedFS on startup |
-| `monitoring/prometheus.yml` | Prometheus scrape config for Flink and SeaTunnel |
-| `monitoring/grafana/` | Grafana datasource, dashboard provider and the dashboard JSON |
-| `monitoring/seatunnel/` | SeaTunnel Zeta cluster config (telemetry, Hazelcast member and client) |
-| `scripts/` | Helper scripts behind the make targets |
-
-## Known limitations
-
-- This is a local demo, not a production pattern. The SeaweedFS credentials are throwaway defaults defined in `.env` and `seaweedfs/s3.json`.
+- The stack runs locally and uses throwaway SeaweedFS credentials defined in `.env` and `seaweedfs/s3.json`. Swap in your own object store and credentials to point it at real infrastructure.
 - The connector jars are pinned to specific versions and downloaded on demand rather than committed. See the stack versions table for the exact, mutually compatible set.
 - SeaTunnel runs on its own single-node Zeta cluster (not on the Flink cluster). Because jobs run on the cluster, their console output appears in the SeaTunnel cluster log rather than the terminal.
 - The Flink CDC job runs continuously until you run `make down`.
