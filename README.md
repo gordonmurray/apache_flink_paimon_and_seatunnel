@@ -38,7 +38,7 @@ Give the job a few seconds to take its first checkpoint (Paimon commits on check
 make verify
 ```
 
-This runs a one-off batch query against the Paimon table and prints a row count and a sample, for example:
+This runs a one-off batch query against the Paimon table and prints a row count and a sample with ids, names and prices, for example:
 
 ```
 +-----------+
@@ -46,7 +46,25 @@ This runs a one-off batch query against the Paimon table and prints a row count 
 +-----------+
 |        30 |
 +-----------+
+
++----+------------------------+--------+
+| id |                   name |  price |
++----+------------------------+--------+
+|  1 |  Organic Almond Butter |  10.99 |
+|  2 |      Whole Grain Bread |   3.49 |
+|  3 | Cold Pressed Olive Oil |  15.99 |
++----+------------------------+--------+
 ```
+
+### Watch change data capture
+
+The job keeps running, so changes made in MariaDB after the initial snapshot flow through to Paimon as well. Apply a sample change with:
+
+```
+make cdc-change
+```
+
+This updates one product's price and deletes another in MariaDB. Wait about ten seconds for the next checkpoint, then run `make verify` again: the row count drops to 29 and `Organic Almond Butter` now shows a price of `12.49`.
 
 To tear everything down and remove the volumes, run `make down`.
 
