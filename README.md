@@ -89,6 +89,8 @@ This waits for Flink, MinIO and MariaDB to be ready, then runs the Flink SQL cli
 
 Open the Flink UI and look under **Running Jobs**; you should see `insert-into_s3_catalog.paimon_database.myproducts` in the `RUNNING` state.
 
+![Flink dashboard showing the CDC job running](docs/images/flink-running-job.png)
+
 ### 4. Verify the data landed in Paimon
 
 Give the job a few seconds to take its first checkpoint, then read the table back:
@@ -114,6 +116,10 @@ This runs a one-off batch query against the Paimon table and prints a row count 
 |  3 | Cold Pressed Olive Oil |  15.99 |
 +----+------------------------+--------+
 ```
+
+In the MinIO console you can see the Paimon table laid out under the `paimon` bucket, with its data, manifest, schema and snapshot files:
+
+![Paimon table files in the MinIO console](docs/images/minio-paimon-table.png)
 
 ### 5. Watch change data capture (optional)
 
@@ -169,6 +175,10 @@ SeaTunnelRow#kind=INSERT : 3, Cold Pressed Olive Oil, 15.99, premium
 ...
 Total Read Count : 30
 ```
+
+The Iceberg table lands in the `iceberg` bucket on MinIO, with the usual `data` and `metadata` directories:
+
+![Iceberg table files in the MinIO console](docs/images/minio-iceberg-table.png)
 
 ### 9. Tear down
 
