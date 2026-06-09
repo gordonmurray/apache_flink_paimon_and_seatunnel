@@ -1,8 +1,6 @@
 # Apache Flink, Paimon and SeaTunnel
 
-![Static Badge](https://img.shields.io/badge/Just_testing-Not_production_ready-red)
-
-A small local demo that answers one question: can Apache SeaTunnel read data that Apache Flink and Apache Paimon wrote to S3-compatible storage, and can it then move that data on into Apache Iceberg?
+A working example that answers one question: can Apache SeaTunnel read data that Apache Flink and Apache Paimon wrote to S3-compatible storage, and can it then move that data on into Apache Iceberg?
 
 The whole stack runs locally on Docker Compose against MinIO, so there is no real AWS bucket and no manual credential setup. It is a learning and testing project, not a production-ready pattern.
 
