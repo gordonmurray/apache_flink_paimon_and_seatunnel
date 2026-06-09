@@ -2,8 +2,6 @@
 
 A working example of a streaming lakehouse you can run end to end on your own machine: change data capture from MariaDB into Paimon with Flink, then SeaTunnel reading Paimon and writing Iceberg, all on SeaweedFS, with Prometheus and Grafana over the top.
 
-It answers a concrete question: can SeaTunnel read data that Flink and Paimon wrote to S3-compatible storage, and move it on into Iceberg? It can, and every step has a command that shows the data is real.
-
 The whole stack runs on Docker Compose against SeaweedFS, so there is no AWS account, no real bucket, and no manual credential setup.
 
 ## What it does
