@@ -2,4 +2,5 @@
 connector-fake
 connector-console
 connector-paimon
+connector-iceberg
 --end--
