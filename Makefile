@@ -1,4 +1,4 @@
-.PHONY: up submit verify cdc-change logs down
+.PHONY: up submit verify cdc-change seatunnel-read logs down
 
 # Start the core stack: MariaDB, MinIO, the bucket init step and the Flink cluster.
 up:
@@ -15,6 +15,10 @@ verify:
 # Change a row in MariaDB to watch CDC flow through to Paimon.
 cdc-change:
 	./scripts/cdc_change.sh
+
+# Run SeaTunnel to read the Paimon table from MinIO and print the rows.
+seatunnel-read:
+	docker compose run --rm seatunnel /opt/seatunnel/bin/seatunnel.sh --config /config/paimon-to-console.conf -m local
 
 # Follow the Flink JobManager logs.
 logs:

@@ -1,4 +1,5 @@
 --connectors-v2--
 connector-fake
 connector-console
+connector-paimon
 --end--
