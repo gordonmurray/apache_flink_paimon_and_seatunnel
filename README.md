@@ -20,24 +20,28 @@ Each step has a command that prints what it produced, so you can confirm the dat
 
 ## Stack versions
 
-| Component | Version |
-| --- | --- |
-| Flink | 1.17.1 |
-| Flink MySQL CDC connector | 2.4.1 |
-| Paimon (Flink connector) | 0.6.0-incubating |
-| MariaDB | 10.6.14 |
-| MinIO | RELEASE.2025-09-07 |
-| MinIO client (mc) | RELEASE.2025-08-13 |
-| SeaTunnel | 2.3.11 |
-| Iceberg (bundled in the SeaTunnel connector) | 1.4.2 |
+The stack targets the **Flink 1.20 LTS** line. The Flink, Paimon and CDC components are chosen to be mutually compatible against it; SeaTunnel runs its own Zeta engine, so its version is independent of Flink.
 
-These are pinned in `docker-compose.yml`, the `.env` file and `seatunnel/Dockerfile`.
+| Component | Version | Notes |
+| --- | --- | --- |
+| Flink | 1.20.4 (Java 11 image) | LTS line |
+| Flink MySQL CDC connector | 3.6.0-1.20 | `org.apache.flink`, built for Flink 1.20 |
+| MySQL JDBC driver | mysql-connector-j 8.4.0 | needed by the CDC connector's snapshot phase |
+| Paimon (Flink connector) | 1.2.0 | `paimon-flink-1.20` and `paimon-s3` |
+| Flink S3 filesystem | flink-s3-fs-hadoop 1.20.4 | matches Flink |
+| MariaDB | 10.6.14 | CDC source |
+| MinIO | RELEASE.2025-09-07 | S3-compatible storage |
+| MinIO client (mc) | RELEASE.2025-08-13 | bucket init |
+| SeaTunnel | 2.3.13 | reads Paimon, writes Iceberg |
+| Iceberg | bundled in the SeaTunnel Iceberg connector | written via a Hadoop catalog |
+
+The Flink and SeaTunnel versions live in `.env` (`FLINK_VERSION`, `SEATUNNEL_VERSION`) and feed both Compose and the SeaTunnel image build. The jar versions and their SHA512 checksums are pinned in `scripts/download_jars.sh`.
 
 ## Prerequisites
 
 - Docker Engine with the Compose V2 plugin (the `docker compose` subcommand, not the old `docker-compose` binary). Tested with Docker 29.5 and Compose v5.1.
 - `make` and `curl` on the host.
-- Internet access on the first run to download the connector jars (about 190 MB) from Maven Central.
+- Internet access on the first run to download the connector jars (about 200 MB) from Maven Central.
 - Around 4 GB of free disk for the images and the downloaded connector jars.
 
 ## Quick start
@@ -70,13 +74,13 @@ This runs `scripts/download_jars.sh`, which downloads each jar from a pinned Mav
 
 ### 2. Build the SeaTunnel image
 
-There is no fully up to date SeaTunnel image on Docker Hub for this setup, so the stack builds one locally from `seatunnel/Dockerfile`. It installs SeaTunnel 2.3.11 and only the connectors the demo needs (fake, console, paimon and iceberg).
+There is no fully up to date SeaTunnel image on Docker Hub for this setup, so the stack builds one locally from `seatunnel/Dockerfile`. It installs SeaTunnel 2.3.13 and only the connectors the demo needs (fake, console, paimon and iceberg).
 
 ```
 docker compose build seatunnel
 ```
 
-You can also build it directly with `docker build -t seatunnel:2.3.11 -f seatunnel/Dockerfile seatunnel`.
+You can also build it directly with `docker build -t seatunnel:2.3.13 -f seatunnel/Dockerfile seatunnel`.
 
 ### 3. Start the stack
 
@@ -243,6 +247,6 @@ You should see rows logged through the console sink and the job finish without e
 ## Known limitations
 
 - This is a local demo, not a production pattern. The MinIO credentials are throwaway defaults and the demo buckets are made public for convenience.
-- The Flink, Paimon and CDC versions are from 2023. The connector jars are pinned and downloaded on demand rather than committed, but modernising the stack to current releases is tracked separately.
+- The connector jars are pinned to specific versions and downloaded on demand rather than committed. See the stack versions table for the exact, mutually compatible set.
 - SeaTunnel runs its own Zeta engine in local mode for the read and transform jobs; it does not run on the Flink cluster.
 - The Flink CDC job runs continuously until you run `make down`.

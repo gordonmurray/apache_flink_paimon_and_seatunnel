@@ -39,7 +39,7 @@ services:
       "
 
   jobmanager:
-    image: flink:1.17.1
+    image: flink:${FLINK_VERSION}
     environment:
       - JOB_MANAGER_RPC_ADDRESS=jobmanager
       - |
@@ -55,18 +55,18 @@ services:
     depends_on:
       - minio
     volumes:
-      - ./jars/flink-sql-connector-mysql-cdc-2.4.1.jar:/opt/flink/lib/flink-sql-connector-mysql-cdc-2.4.1.jar
-      - ./jars/flink-connector-jdbc-3.1.0-1.17.jar:/opt/flink/lib/flink-connector-jdbc-3.1.0-1.17.jar
-      - ./jars/paimon-flink-1.17-0.6.0-incubating.jar:/opt/flink/lib/paimon-flink-1.17-0.6.0-incubating.jar
+      - ./jars/flink-sql-connector-mysql-cdc-3.6.0-1.20.jar:/opt/flink/lib/flink-sql-connector-mysql-cdc-3.6.0-1.20.jar
+      - ./jars/mysql-connector-j-8.4.0.jar:/opt/flink/lib/mysql-connector-j-8.4.0.jar
+      - ./jars/paimon-flink-1.20-1.2.0.jar:/opt/flink/lib/paimon-flink-1.20-1.2.0.jar
       - ./jars/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar:/opt/flink/lib/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar
-      - ./jars/flink-s3-fs-hadoop-1.17.1.jar:/opt/flink/plugins/s3-fs-hadoop/flink-s3-fs-hadoop-1.17.1.jar
-      - ./jars/paimon-s3-0.6.0-incubating.jar:/opt/flink/lib/paimon-s3-0.6.0-incubating.jar
+      - ./jars/flink-s3-fs-hadoop-1.20.4.jar:/opt/flink/plugins/s3-fs-hadoop/flink-s3-fs-hadoop-1.20.4.jar
+      - ./jars/paimon-s3-1.2.0.jar:/opt/flink/lib/paimon-s3-1.2.0.jar
       - ./jobs:/opt/flink/jobs
     deploy:
           replicas: 1
 
   taskmanager:
-    image: flink:1.17.1
+    image: flink:${FLINK_VERSION}
     environment:
       - JOB_MANAGER_RPC_ADDRESS=jobmanager
       - |
@@ -82,19 +82,22 @@ services:
       - minio
     command: taskmanager
     volumes:
-      - ./jars/flink-sql-connector-mysql-cdc-2.4.1.jar:/opt/flink/lib/flink-sql-connector-mysql-cdc-2.4.1.jar
-      - ./jars/flink-connector-jdbc-3.1.0-1.17.jar:/opt/flink/lib/flink-connector-jdbc-3.1.0-1.17.jar
-      - ./jars/paimon-flink-1.17-0.6.0-incubating.jar:/opt/flink/lib/paimon-flink-1.17-0.6.0-incubating.jar
+      - ./jars/flink-sql-connector-mysql-cdc-3.6.0-1.20.jar:/opt/flink/lib/flink-sql-connector-mysql-cdc-3.6.0-1.20.jar
+      - ./jars/mysql-connector-j-8.4.0.jar:/opt/flink/lib/mysql-connector-j-8.4.0.jar
+      - ./jars/paimon-flink-1.20-1.2.0.jar:/opt/flink/lib/paimon-flink-1.20-1.2.0.jar
       - ./jars/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar:/opt/flink/lib/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar
-      - ./jars/flink-s3-fs-hadoop-1.17.1.jar:/opt/flink/plugins/s3-fs-hadoop/flink-s3-fs-hadoop-1.17.1.jar
-      - ./jars/paimon-s3-0.6.0-incubating.jar:/opt/flink/lib/paimon-s3-0.6.0-incubating.jar
+      - ./jars/flink-s3-fs-hadoop-1.20.4.jar:/opt/flink/plugins/s3-fs-hadoop/flink-s3-fs-hadoop-1.20.4.jar
+      - ./jars/paimon-s3-1.2.0.jar:/opt/flink/lib/paimon-s3-1.2.0.jar
     deploy:
           replicas: 2
 
   seatunnel:
     build:
       context: ./seatunnel
-    image: seatunnel:2.3.11
+      args:
+        FLINK_VERSION: ${FLINK_VERSION}
+        SEATUNNEL_VERSION: ${SEATUNNEL_VERSION}
+    image: seatunnel:${SEATUNNEL_VERSION}
     container_name: seatunnel
     profiles: ["seatunnel"]
     volumes:
