@@ -4,9 +4,11 @@ DROP CATALOG IF EXISTS s3_catalog;
 
 CREATE CATALOG s3_catalog WITH (
     'type' = 'paimon',
-    'warehouse' = 's3://my-test-bucket/paimon',
-    's3.access-key' = '',
-    's3.secret-key' = ''
+    'warehouse' = 's3://paimon/warehouse',
+    's3.endpoint' = 'http://minio:9000',
+    's3.access-key' = 'minioadmin',
+    's3.secret-key' = 'minioadmin',
+    's3.path.style.access' = 'true'
 );
 
 USE CATALOG s3_catalog;
