@@ -224,7 +224,9 @@ Prometheus (http://localhost:9090) scrapes both. Open Grafana at http://localhos
 
 ![Grafana dashboard over the Flink and SeaTunnel metrics](docs/images/grafana-dashboard.png)
 
-Run `make submit` then `make seatunnel-iceberg` and watch the dashboard: the Flink job count, checkpoints and SeaTunnel completed tasks all move.
+The charts react to real activity. Submit the CDC job, push some changes through MariaDB and run a few SeaTunnel jobs, and the Flink throughput, checkpoints and SeaTunnel completed-task counts all climb:
+
+![Records per second flowing through the Flink CDC job](docs/images/grafana-throughput.png)
 
 ## SeaTunnel image smoke test
 
