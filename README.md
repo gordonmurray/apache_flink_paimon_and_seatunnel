@@ -1,44 +1,105 @@
 # Apache Flink, Paimon and SeaTunnel
 
-![Static Badge](https://img.shields.io/badge/Just_testing-Not_production_ready-red)
+A working example that answers one question: can Apache SeaTunnel read data that Apache Flink and Apache Paimon wrote to S3-compatible storage, and can it then move that data on into Apache Iceberg?
 
-Seeing if Seatunnel can read data stored in s3 created using Flink and Paimon
+The whole stack runs locally on Docker Compose against MinIO, so there is no real AWS bucket and no manual credential setup. It is a learning and testing project, not a production-ready pattern.
 
-### Build a SeaTunnel image
+## What the demo proves
 
-The stack uses a local SeaTunnel image. Build it with:
+The full path runs end to end:
 
 ```
-cd seatunnel
-
-docker build -t seatunnel:2.3.11 -f Dockerfile .
+MariaDB products -> Flink CDC -> Paimon on MinIO -> SeaTunnel (transform) -> Iceberg on MinIO
 ```
 
-Compose can also build it for you with `docker compose build seatunnel`.
+1. Flink reads the MariaDB `products` table with the MySQL CDC connector and streams it into a Paimon table on MinIO.
+2. SeaTunnel reads that Paimon table straight from MinIO.
+3. SeaTunnel adds a `price_band` column and writes the result into an Iceberg table on MinIO.
 
-Once built, run `docker compose up -d`
+Each step has a command that prints what it produced, so you can confirm the data is real at every stage.
 
-### Submit the Flink CDC job
+## Stack versions
 
-`docker compose up -d` starts MariaDB, MinIO and the Flink cluster, but it does not submit any work. Submit the CDC pipeline in `jobs/job.sql` with:
+| Component | Version |
+| --- | --- |
+| Flink | 1.17.1 |
+| Flink MySQL CDC connector | 2.4.1 |
+| Paimon (Flink connector) | 0.6 snapshot |
+| MariaDB | 10.6.14 |
+| MinIO | RELEASE.2025-09-07 |
+| MinIO client (mc) | RELEASE.2025-08-13 |
+| SeaTunnel | 2.3.11 |
+| Iceberg (bundled in the SeaTunnel connector) | 1.4.2 |
+
+These are pinned in `docker-compose.yml`, the `.env` file and `seatunnel/Dockerfile`.
+
+## Prerequisites
+
+- Docker Engine with the Compose V2 plugin (the `docker compose` subcommand, not the old `docker-compose` binary). Tested with Docker 29.5 and Compose v5.1.
+- `make` and `curl` on the host.
+- Around 4 GB of free disk for the images and the committed connector jars.
+
+## Quick start
+
+```
+docker compose build seatunnel   # build the local SeaTunnel image
+make up                          # start MariaDB, MinIO and the Flink cluster
+make submit                      # submit the Flink CDC job
+make verify                      # read the Paimon table back
+make seatunnel-read              # SeaTunnel reads Paimon and prints the rows
+make seatunnel-iceberg           # SeaTunnel transforms Paimon into Iceberg
+make verify-iceberg              # read the Iceberg table back
+make down                        # stop everything and remove volumes
+```
+
+The rest of this README explains each step and the output to expect.
+
+## Step by step
+
+### 1. Build the SeaTunnel image
+
+There is no fully up to date SeaTunnel image on Docker Hub for this setup, so the stack builds one locally from `seatunnel/Dockerfile`. It installs SeaTunnel 2.3.11 and only the connectors the demo needs (fake, console, paimon and iceberg).
+
+```
+docker compose build seatunnel
+```
+
+You can also build it directly with `docker build -t seatunnel:2.3.11 -f seatunnel/Dockerfile seatunnel`.
+
+### 2. Start the stack
+
+```
+make up
+```
+
+This starts MariaDB (seeded with 30 products), MinIO, a one-off step that creates the `paimon` and `iceberg` buckets, and the Flink cluster (one JobManager and two TaskManagers). The SeaTunnel container is held back behind a Compose profile because it runs as a one-off job rather than a long-lived service.
+
+- Flink UI: http://localhost:8081
+- MinIO console: http://localhost:9001 (user `minioadmin`, password `minioadmin`)
+
+### 3. Submit the Flink CDC job
+
+`make up` does not submit any work on its own. Submit the CDC pipeline in `jobs/job.sql` with:
 
 ```
 make submit
 ```
 
-This waits for Flink, MinIO and MariaDB to be ready, then runs the Flink SQL client against `jobs/job.sql`. The job streams the MariaDB `products` table into the Paimon `myproducts` table on MinIO.
+This waits for Flink, MinIO and MariaDB to be ready, then runs the Flink SQL client against `jobs/job.sql`. The job enables checkpointing (Paimon commits on checkpoint) and streams the MariaDB `products` table into the Paimon `myproducts` table on MinIO.
 
-Open the Flink UI at http://localhost:8081 and look under **Running Jobs**; you should see `insert-into_s3_catalog.paimon_database.myproducts` in the `RUNNING` state.
+Open the Flink UI and look under **Running Jobs**; you should see `insert-into_s3_catalog.paimon_database.myproducts` in the `RUNNING` state.
 
-### Verify the data landed in Paimon
+![Flink dashboard showing the CDC job running](docs/images/flink-running-job.png)
 
-Give the job a few seconds to take its first checkpoint (Paimon commits on checkpoint), then read the table back:
+### 4. Verify the data landed in Paimon
+
+Give the job a few seconds to take its first checkpoint, then read the table back:
 
 ```
 make verify
 ```
 
-This runs a one-off batch query against the Paimon table and prints a row count and a sample with ids, names and prices, for example:
+This runs a one-off batch query against the Paimon table and prints a row count and a sample with ids, names and prices:
 
 ```
 +-----------+
@@ -56,29 +117,30 @@ This runs a one-off batch query against the Paimon table and prints a row count 
 +----+------------------------+--------+
 ```
 
-### Watch change data capture
+In the MinIO console you can see the Paimon table laid out under the `paimon` bucket, with its data, manifest, schema and snapshot files:
 
-The job keeps running, so changes made in MariaDB after the initial snapshot flow through to Paimon as well. Apply a sample change with:
+![Paimon table files in the MinIO console](docs/images/minio-paimon-table.png)
+
+### 5. Watch change data capture (optional)
+
+The job keeps running, so changes made in MariaDB after the initial snapshot flow through to Paimon too. Apply a sample change with:
 
 ```
 make cdc-change
 ```
 
-This updates one product's price and deletes another in MariaDB. Wait about ten seconds for the next checkpoint, then run `make verify` again: the row count drops to 29 and `Organic Almond Butter` now shows a price of `12.49`.
+This updates one product's price and deletes another in MariaDB. Wait about ten seconds for the next checkpoint, then run `make verify` again: the row count drops to 29 and `Organic Almond Butter` shows a price of `12.49`.
 
-### Read the Paimon table with SeaTunnel
-
-This is the point of the demo: SeaTunnel reading the table that Flink and Paimon produced on MinIO. With the CDC job submitted and the table populated, run:
+### 6. Read the Paimon table with SeaTunnel
 
 ```
 make seatunnel-read
 ```
 
-SeaTunnel reads `paimon_database.myproducts` straight from MinIO using `seatunnel/paimon-to-console.conf` and prints the rows through the console sink, for example:
+SeaTunnel reads `paimon_database.myproducts` straight from MinIO using `seatunnel/paimon-to-console.conf` and prints the rows through a console sink:
 
 ```
 output rowType: id<INT>, name<STRING>, price<Decimal(10, 2)>
-...
 SeaTunnelRow#kind=INSERT : 1, Organic Almond Butter, 10.99
 SeaTunnelRow#kind=INSERT : 2, Whole Grain Bread, 3.49
 SeaTunnelRow#kind=INSERT : 3, Cold Pressed Olive Oil, 15.99
@@ -89,9 +151,7 @@ Total Write Count : 30
 
 These are the real products written by Flink, not generated rows.
 
-### Transform Paimon into Iceberg with SeaTunnel
-
-The fuller flow has SeaTunnel do some real integration work: read Paimon, transform the rows, and write them into an Iceberg table on MinIO.
+### 7. Transform Paimon into Iceberg with SeaTunnel
 
 ```
 make seatunnel-iceberg
@@ -99,7 +159,7 @@ make seatunnel-iceberg
 
 This runs `seatunnel/paimon-to-iceberg.conf`, which reads `paimon_database.myproducts`, adds a `price_band` column (`budget`, `mid` or `premium` based on price) with a SQL transform, and writes the result into the `iceberg_db.products` Iceberg table in the `iceberg` bucket using a Hadoop catalog. The write uses `DROP_DATA`, so re-running keeps the table at the same row count rather than appending.
 
-Read the Iceberg table back to confirm the transformed rows landed:
+### 8. Verify the Iceberg table
 
 ```
 make verify-iceberg
@@ -116,16 +176,61 @@ SeaTunnelRow#kind=INSERT : 3, Cold Pressed Olive Oil, 15.99, premium
 Total Read Count : 30
 ```
 
-The full path is now `MariaDB -> Flink CDC -> Paimon on MinIO -> SeaTunnel -> Iceberg on MinIO`.
+The Iceberg table lands in the `iceberg` bucket on MinIO, with the usual `data` and `metadata` directories:
 
-To tear everything down and remove the volumes, run `make down`.
+![Iceberg table files in the MinIO console](docs/images/minio-iceberg-table.png)
 
-### Smoke test the SeaTunnel image
+### 9. Tear down
 
-To confirm the image starts and loads its config, run the bundled sample job, which generates a few fake rows and prints them to the console:
+```
+make down
+```
+
+This stops the stack and removes its volumes, so the next run starts clean.
+
+## SeaTunnel image smoke test
+
+To confirm the SeaTunnel image builds and starts on its own, without the rest of the stack, run the bundled sample job. It generates a few fake rows and prints them to the console:
 
 ```
 docker compose run --rm seatunnel
 ```
 
 You should see rows logged through the console sink and the job finish without errors.
+
+## Make targets
+
+| Target | What it does |
+| --- | --- |
+| `make up` | Start MariaDB, MinIO, the bucket init step and the Flink cluster |
+| `make submit` | Submit the Flink CDC job in `jobs/job.sql` |
+| `make verify` | Read the Paimon table back and print a count and sample |
+| `make cdc-change` | Change a row in MariaDB to watch CDC flow through |
+| `make seatunnel-read` | SeaTunnel reads the Paimon table and prints the rows |
+| `make seatunnel-iceberg` | SeaTunnel transforms Paimon and writes the Iceberg table |
+| `make verify-iceberg` | Read the Iceberg table back |
+| `make logs` | Follow the Flink JobManager logs |
+| `make down` | Stop the stack and remove volumes |
+
+## Repository layout
+
+| Path | Purpose |
+| --- | --- |
+| `docker-compose.yml` | The full stack: MariaDB, MinIO, bucket init, Flink and SeaTunnel |
+| `.env` | MinIO credentials, endpoint and bucket names |
+| `sql/seed.sql` | Creates and seeds the MariaDB `products` table |
+| `sql/mariadb.cnf` | Enables ROW-format binlog for CDC |
+| `jobs/job.sql` | Flink CDC pipeline into Paimon |
+| `jobs/verify.sql` | Batch read of the Paimon table |
+| `jars/` | Flink, Paimon and CDC connector jars mounted into Flink |
+| `seatunnel/Dockerfile` | Builds the local SeaTunnel image |
+| `seatunnel/plugin_config` | The SeaTunnel connectors to install |
+| `seatunnel/*.conf` | SeaTunnel job configs (fake sample, Paimon read, Paimon to Iceberg, Iceberg read) |
+| `scripts/` | Helper scripts behind the make targets |
+
+## Known limitations
+
+- This is a local demo, not a production pattern. The MinIO credentials are throwaway defaults and the demo buckets are made public for convenience.
+- The Flink, Paimon and CDC versions are from 2023 and the connector jars are committed into `jars/`. Pinning those as downloads and modernising the stack are tracked separately.
+- SeaTunnel runs its own Zeta engine in local mode for the read and transform jobs; it does not run on the Flink cluster.
+- The Flink CDC job runs continuously until you run `make down`.
