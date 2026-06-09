@@ -44,4 +44,4 @@ create temporary table products (
 );
 
 
-INSERT INTO myproducts (id,name) SELECT id, name FROM products;
+INSERT INTO myproducts (id, name, price) SELECT id, name, price FROM products;

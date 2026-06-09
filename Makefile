@@ -1,4 +1,4 @@
-.PHONY: up submit verify logs down
+.PHONY: up submit verify cdc-change logs down
 
 # Start the core stack: MariaDB, MinIO, the bucket init step and the Flink cluster.
 up:
@@ -11,6 +11,10 @@ submit:
 # Read the Paimon table back to confirm rows landed.
 verify:
 	./scripts/verify_job.sh
+
+# Change a row in MariaDB to watch CDC flow through to Paimon.
+cdc-change:
+	./scripts/cdc_change.sh
 
 # Follow the Flink JobManager logs.
 logs:
