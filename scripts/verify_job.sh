@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Reads the Paimon myproducts table back from MinIO with a one-off batch query
+# Reads the Paimon myproducts table back from SeaweedFS with a one-off batch query
 # to confirm the CDC job landed rows.
 
 set -euo pipefail
