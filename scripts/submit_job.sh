@@ -2,7 +2,7 @@
 #
 # Waits for the stack to be ready and submits jobs/job.sql to the Flink cluster.
 # The job is the CDC pipeline that streams the MariaDB products table into the
-# Paimon myproducts table on MinIO.
+# Paimon myproducts table on SeaweedFS.
 
 set -euo pipefail
 
@@ -14,11 +14,11 @@ until curl -sf "${FLINK_URL}/overview" >/dev/null 2>&1; do
 done
 echo "Flink is up."
 
-echo "Waiting for MinIO ..."
-until curl -sf "http://localhost:9000/minio/health/live" >/dev/null 2>&1; do
+echo "Waiting for SeaweedFS ..."
+until curl -s "http://localhost:9000" >/dev/null 2>&1; do
   sleep 2
 done
-echo "MinIO is up."
+echo "SeaweedFS is up."
 
 echo "Waiting for MariaDB ..."
 until docker compose exec -T mariadb mysqladmin ping -uroot -prootpassword --silent >/dev/null 2>&1; do

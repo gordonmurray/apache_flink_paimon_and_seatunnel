@@ -9,9 +9,9 @@ DROP CATALOG IF EXISTS s3_catalog;
 CREATE CATALOG s3_catalog WITH (
     'type' = 'paimon',
     'warehouse' = 's3://paimon/warehouse',
-    's3.endpoint' = 'http://minio:9000',
-    's3.access-key' = 'minioadmin',
-    's3.secret-key' = 'minioadmin',
+    's3.endpoint' = 'http://seaweedfs:9000',
+    's3.access-key' = 'admin',
+    's3.secret-key' = 'adminsecret',
     's3.path.style.access' = 'true'
 );
 

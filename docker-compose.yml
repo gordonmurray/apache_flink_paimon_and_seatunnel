@@ -10,33 +10,27 @@ services:
     ports:
       - "3306:3306"
 
-  minio:
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.32
+    command: server -dir=/data -s3 -s3.port=9000 -s3.config=/etc/seaweedfs/s3.json
     ports:
       - "9000:9000"
-      - "9001:9001"
+      - "8333:8333"
+      - "8888:8888"
     volumes:
-      - minio-data:/data
+      - seaweed-data:/data
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
 
   createbuckets:
-    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    image: chrislusf/seaweedfs:4.32
     depends_on:
-      - minio
-    entrypoint: >
-      /bin/sh -c "
-      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do
-        echo 'waiting for minio'; sleep 1;
-      done;
-      mc mb --ignore-existing local/${PAIMON_BUCKET};
-      mc anonymous set public local/${PAIMON_BUCKET};
-      mc mb --ignore-existing local/${ICEBERG_BUCKET};
-      mc anonymous set public local/${ICEBERG_BUCKET};
-      echo 'buckets ${PAIMON_BUCKET} and ${ICEBERG_BUCKET} ready';
-      "
+      - seaweedfs
+    environment:
+      PAIMON_BUCKET: ${PAIMON_BUCKET}
+      ICEBERG_BUCKET: ${ICEBERG_BUCKET}
+    entrypoint: ["/bin/sh", "/create-buckets.sh"]
+    volumes:
+      - ./seaweedfs/create-buckets.sh:/create-buckets.sh:ro
 
   jobmanager:
     image: flink:${FLINK_VERSION}
@@ -46,14 +40,14 @@ services:
         FLINK_PROPERTIES=
         jobmanager.rpc.address: jobmanager
         s3.endpoint: ${S3_ENDPOINT}
-        s3.access-key: ${MINIO_ROOT_USER}
-        s3.secret-key: ${MINIO_ROOT_PASSWORD}
+        s3.access-key: ${S3_ACCESS_KEY}
+        s3.secret-key: ${S3_SECRET_KEY}
         s3.path.style.access: true
     ports:
       - "8081:8081"
     command: jobmanager
     depends_on:
-      - minio
+      - seaweedfs
     volumes:
       - ./jars/flink-sql-connector-mysql-cdc-3.6.0-1.20.jar:/opt/flink/lib/flink-sql-connector-mysql-cdc-3.6.0-1.20.jar
       - ./jars/mysql-connector-j-8.4.0.jar:/opt/flink/lib/mysql-connector-j-8.4.0.jar
@@ -73,13 +67,13 @@ services:
         FLINK_PROPERTIES=
         jobmanager.rpc.address: jobmanager
         s3.endpoint: ${S3_ENDPOINT}
-        s3.access-key: ${MINIO_ROOT_USER}
-        s3.secret-key: ${MINIO_ROOT_PASSWORD}
+        s3.access-key: ${S3_ACCESS_KEY}
+        s3.secret-key: ${S3_SECRET_KEY}
         s3.path.style.access: true
         taskmanager.numberOfTaskSlots: 2
     depends_on:
       - jobmanager
-      - minio
+      - seaweedfs
     command: taskmanager
     volumes:
       - ./jars/flink-sql-connector-mysql-cdc-3.6.0-1.20.jar:/opt/flink/lib/flink-sql-connector-mysql-cdc-3.6.0-1.20.jar
@@ -105,4 +99,4 @@ services:
     command: ["/opt/seatunnel/bin/seatunnel.sh", "--config", "/config/seatunnel.conf", "-m", "local"]
 
 volumes:
-  minio-data:
+  seaweed-data:
