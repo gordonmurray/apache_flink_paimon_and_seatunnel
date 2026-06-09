@@ -22,15 +22,15 @@ cdc-change:
 
 # Run SeaTunnel to read the Paimon table from SeaweedFS and print the rows.
 seatunnel-read:
-	docker compose run --rm seatunnel /opt/seatunnel/bin/seatunnel.sh --config /config/paimon-to-console.conf -m local
+	docker compose run --rm seatunnel /opt/seatunnel/bin/seatunnel.sh --config /config/paimon-to-console.conf -m cluster
 
 # Run SeaTunnel to read Paimon, add a price_band column and write an Iceberg table on SeaweedFS.
 seatunnel-iceberg:
-	docker compose run --rm seatunnel /opt/seatunnel/bin/seatunnel.sh --config /config/paimon-to-iceberg.conf -m local
+	docker compose run --rm seatunnel /opt/seatunnel/bin/seatunnel.sh --config /config/paimon-to-iceberg.conf -m cluster
 
 # Read the Iceberg table back to confirm the transformed rows landed.
 verify-iceberg:
-	docker compose run --rm seatunnel /opt/seatunnel/bin/seatunnel.sh --config /config/iceberg-to-console.conf -m local
+	docker compose run --rm seatunnel /opt/seatunnel/bin/seatunnel.sh --config /config/iceberg-to-console.conf -m cluster
 
 # Follow the Flink JobManager logs.
 logs:

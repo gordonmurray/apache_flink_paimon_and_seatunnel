@@ -1,0 +1,18 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: flink-jobmanager
+    static_configs:
+      - targets: ["jobmanager:9249"]
+
+  - job_name: flink-taskmanager
+    dns_sd_configs:
+      - names: ["taskmanager"]
+        type: A
+        port: 9249
+
+  - job_name: seatunnel
+    metrics_path: /hazelcast/rest/instance/metrics
+    static_configs:
+      - targets: ["seatunnel-cluster:5801"]

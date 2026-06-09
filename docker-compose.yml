@@ -43,6 +43,8 @@ services:
         s3.access-key: ${S3_ACCESS_KEY}
         s3.secret-key: ${S3_SECRET_KEY}
         s3.path.style.access: true
+        metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+        metrics.reporter.prom.port: 9249
     ports:
       - "8081:8081"
     command: jobmanager
@@ -71,6 +73,8 @@ services:
         s3.secret-key: ${S3_SECRET_KEY}
         s3.path.style.access: true
         taskmanager.numberOfTaskSlots: 2
+        metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+        metrics.reporter.prom.port: 9249
     depends_on:
       - jobmanager
       - seaweedfs
@@ -85,6 +89,22 @@ services:
     deploy:
           replicas: 2
 
+  seatunnel-cluster:
+    build:
+      context: ./seatunnel
+      args:
+        FLINK_VERSION: ${FLINK_VERSION}
+        SEATUNNEL_VERSION: ${SEATUNNEL_VERSION}
+    image: seatunnel:${SEATUNNEL_VERSION}
+    container_name: seatunnel-cluster
+    command: ["/opt/seatunnel/bin/seatunnel-cluster.sh"]
+    ports:
+      - "5801:5801"
+      - "8080:8080"
+    volumes:
+      - ./monitoring/seatunnel/seatunnel.yaml:/opt/seatunnel/config/seatunnel.yaml:ro
+      - ./monitoring/seatunnel/hazelcast.yaml:/opt/seatunnel/config/hazelcast.yaml:ro
+
   seatunnel:
     build:
       context: ./seatunnel
@@ -96,7 +116,33 @@ services:
     profiles: ["seatunnel"]
     volumes:
       - ./seatunnel:/config
+      - ./monitoring/seatunnel/hazelcast-client.yaml:/opt/seatunnel/config/hazelcast-client.yaml:ro
     command: ["/opt/seatunnel/bin/seatunnel.sh", "--config", "/config/seatunnel.conf", "-m", "local"]
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - jobmanager
+
+  grafana:
+    image: grafana/grafana:11.5.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
 
 volumes:
   seaweed-data:
+  grafana-data:

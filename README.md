@@ -31,8 +31,10 @@ The stack targets the **Flink 1.20 LTS** line. The Flink, Paimon and CDC compone
 | Flink S3 filesystem | flink-s3-fs-hadoop 1.20.4 | matches Flink |
 | MariaDB | 10.6.14 | CDC source |
 | SeaweedFS | 4.32 | Apache-2.0 S3-compatible storage and bucket init |
-| SeaTunnel | 2.3.13 | reads Paimon, writes Iceberg |
+| SeaTunnel | 2.3.13 | runs as a Zeta cluster; reads Paimon, writes Iceberg |
 | Iceberg | 1.6.1 (bundled in the SeaTunnel Iceberg connector) | written via a Hadoop catalog |
+| Prometheus | v3.5.0 | scrapes Flink and SeaTunnel metrics |
+| Grafana | 11.5.0 | dashboard over the metrics |
 
 The Flink and SeaTunnel versions live in `.env` (`FLINK_VERSION`, `SEATUNNEL_VERSION`) and feed both Compose and the SeaTunnel image build. The jar versions and their SHA512 checksums are pinned in `scripts/download_jars.sh`.
 
@@ -41,7 +43,7 @@ The Flink and SeaTunnel versions live in `.env` (`FLINK_VERSION`, `SEATUNNEL_VER
 - Docker Engine with the Compose V2 plugin (the `docker compose` subcommand, not the old `docker-compose` binary). Tested with Docker 29.5 and Compose v5.1.
 - `make` and `curl` on the host.
 - Internet access on the first run to download the connector jars (about 200 MB) from Maven Central.
-- Around 4 GB of free disk for the images and the downloaded connector jars.
+- Around 4 GB of free disk for the images and the downloaded connector jars, and roughly 6 GB of memory free for the full stack (Flink, SeaTunnel cluster, SeaweedFS, Prometheus and Grafana).
 
 ## Quick start
 
@@ -87,11 +89,13 @@ You can also build it directly with `docker build -t seatunnel:2.3.13 -f seatunn
 make up
 ```
 
-This starts MariaDB (seeded with 30 products), SeaweedFS, a one-off step that creates the `paimon` and `iceberg` buckets, and the Flink cluster (one JobManager and two TaskManagers). The SeaTunnel container is held back behind a Compose profile because it runs as a one-off job rather than a long-lived service.
+This starts MariaDB (seeded with 30 products), SeaweedFS, a one-off step that creates the `paimon` and `iceberg` buckets, the Flink cluster (one JobManager and two TaskManagers), a long-lived SeaTunnel Zeta cluster, and Prometheus and Grafana. The one-off SeaTunnel job client is held back behind a Compose profile because it runs per job rather than as a service.
 
 - Flink UI: http://localhost:8081
 - SeaweedFS S3 endpoint: http://localhost:9000 (access key `admin`, secret key `adminsecret`)
 - SeaweedFS Filer UI: http://localhost:8888 (browse the buckets under `/buckets`)
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000 (anonymous access; see the monitoring section below)
 
 ### 4. Submit the Flink CDC job
 
@@ -153,16 +157,22 @@ This updates one product's price and deletes another in MariaDB. Wait about ten 
 make seatunnel-read
 ```
 
-SeaTunnel reads `paimon_database.myproducts` straight from SeaweedFS using `seatunnel/paimon-to-console.conf` and prints the rows through a console sink:
+SeaTunnel reads `paimon_database.myproducts` straight from SeaweedFS using `seatunnel/paimon-to-console.conf`. The job is submitted to the SeaTunnel Zeta cluster (`-m cluster`), so the client prints the job summary:
 
 ```
-output rowType: id<INT>, name<STRING>, price<Decimal(10, 2)>
-SeaTunnelRow#kind=INSERT : 1, Organic Almond Butter, 10.99
-SeaTunnelRow#kind=INSERT : 2, Whole Grain Bread, 3.49
-SeaTunnelRow#kind=INSERT : 3, Cold Pressed Olive Oil, 15.99
-...
+Job (...) end with state FINISHED
 Total Read Count : 30
 Total Write Count : 30
+Total Failed Count : 0
+```
+
+Because the job runs on the cluster, the console sink rows themselves are written to the cluster's log:
+
+```
+docker compose logs seatunnel-cluster | grep ConsoleSinkWriter
+...
+SeaTunnelRow#kind=INSERT : 1, Organic Almond Butter, 10.99
+SeaTunnelRow#kind=INSERT : 2, Whole Grain Bread, 3.49
 ```
 
 These are the real products written by Flink, not generated rows.
@@ -181,15 +191,14 @@ This runs `seatunnel/paimon-to-iceberg.conf`, which reads `paimon_database.mypro
 make verify-iceberg
 ```
 
-This runs `seatunnel/iceberg-to-console.conf` and prints the Iceberg rows, including the new column:
+This runs `seatunnel/iceberg-to-console.conf` on the cluster. The client reports `Total Read Count : 30`, and the rows with the new `price_band` column are in the cluster log:
 
 ```
-output rowType: id<INT>, name<STRING>, price<Decimal(10, 2)>, price_band<STRING>
+docker compose logs seatunnel-cluster | grep ConsoleSinkWriter
+...
 SeaTunnelRow#kind=INSERT : 1, Organic Almond Butter, 10.99, premium
 SeaTunnelRow#kind=INSERT : 2, Whole Grain Bread, 3.49, budget
 SeaTunnelRow#kind=INSERT : 3, Cold Pressed Olive Oil, 15.99, premium
-...
-Total Read Count : 30
 ```
 
 The Iceberg table lands in the `iceberg` bucket on SeaweedFS, with the usual `data` and `metadata` directories:
@@ -203,6 +212,21 @@ make down
 ```
 
 This stops the stack and removes its volumes, so the next run starts clean.
+
+## Monitoring with Prometheus and Grafana
+
+The stack ships with Prometheus and Grafana so you can watch the pipeline rather than only reading container logs.
+
+- **Flink** exposes Prometheus metrics from the JobManager and TaskManagers on port `9249` (enabled through `metrics.reporter.prom` in the Compose `FLINK_PROPERTIES`).
+- **SeaTunnel** runs as a long-lived Zeta cluster with telemetry enabled, exposing metrics at `:5801/hazelcast/rest/instance/metrics`. The SeaTunnel jobs (`make seatunnel-read`, `make seatunnel-iceberg`) are submitted to this cluster, so their activity shows up in the metrics.
+
+Prometheus (http://localhost:9090) scrapes both. Open Grafana at http://localhost:3000 (anonymous access is enabled) and the **Flink + SeaTunnel pipeline** dashboard is provisioned automatically. It shows Flink running jobs and checkpoints, records per second, JVM heap, the number of SeaTunnel jobs on the cluster, and SeaTunnel tasks completed:
+
+![Grafana dashboard over the Flink and SeaTunnel metrics](docs/images/grafana-dashboard.png)
+
+The charts react to real activity. Submit the CDC job, push some changes through MariaDB and run a few SeaTunnel jobs, and the Flink throughput, checkpoints and SeaTunnel completed-task counts all climb:
+
+![Records per second flowing through the Flink CDC job](docs/images/grafana-throughput.png)
 
 ## SeaTunnel image smoke test
 
@@ -218,7 +242,7 @@ You should see rows logged through the console sink and the job finish without e
 
 | Target | What it does |
 | --- | --- |
-| `make up` | Start MariaDB, SeaweedFS, the bucket init step and the Flink cluster |
+| `make up` | Start MariaDB, SeaweedFS, the Flink cluster, the SeaTunnel cluster, Prometheus and Grafana |
 | `make submit` | Submit the Flink CDC job in `jobs/job.sql` |
 | `make verify` | Read the Paimon table back and print a count and sample |
 | `make cdc-change` | Change a row in MariaDB to watch CDC flow through |
@@ -244,11 +268,14 @@ You should see rows logged through the console sink and the job finish without e
 | `seatunnel/*.conf` | SeaTunnel job configs (fake sample, Paimon read, Paimon to Iceberg, Iceberg read) |
 | `seaweedfs/s3.json` | SeaweedFS S3 identity (access key and secret) |
 | `seaweedfs/create-buckets.sh` | Creates the demo buckets in SeaweedFS on startup |
+| `monitoring/prometheus.yml` | Prometheus scrape config for Flink and SeaTunnel |
+| `monitoring/grafana/` | Grafana datasource, dashboard provider and the dashboard JSON |
+| `monitoring/seatunnel/` | SeaTunnel Zeta cluster config (telemetry, Hazelcast member and client) |
 | `scripts/` | Helper scripts behind the make targets |
 
 ## Known limitations
 
 - This is a local demo, not a production pattern. The SeaweedFS credentials are throwaway defaults defined in `.env` and `seaweedfs/s3.json`.
 - The connector jars are pinned to specific versions and downloaded on demand rather than committed. See the stack versions table for the exact, mutually compatible set.
-- SeaTunnel runs its own Zeta engine in local mode for the read and transform jobs; it does not run on the Flink cluster.
+- SeaTunnel runs on its own single-node Zeta cluster (not on the Flink cluster). Because jobs run on the cluster, their console output appears in the SeaTunnel cluster log rather than the terminal.
 - The Flink CDC job runs continuously until you run `make down`.
