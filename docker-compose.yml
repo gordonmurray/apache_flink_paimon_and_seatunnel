@@ -35,7 +35,9 @@ services:
       done;
       mc mb --ignore-existing local/${PAIMON_BUCKET};
       mc anonymous set public local/${PAIMON_BUCKET};
-      echo 'bucket ${PAIMON_BUCKET} ready';
+      mc mb --ignore-existing local/${ICEBERG_BUCKET};
+      mc anonymous set public local/${ICEBERG_BUCKET};
+      echo 'buckets ${PAIMON_BUCKET} and ${ICEBERG_BUCKET} ready';
       "
 
   jobmanager:

@@ -89,6 +89,35 @@ Total Write Count : 30
 
 These are the real products written by Flink, not generated rows.
 
+### Transform Paimon into Iceberg with SeaTunnel
+
+The fuller flow has SeaTunnel do some real integration work: read Paimon, transform the rows, and write them into an Iceberg table on MinIO.
+
+```
+make seatunnel-iceberg
+```
+
+This runs `seatunnel/paimon-to-iceberg.conf`, which reads `paimon_database.myproducts`, adds a `price_band` column (`budget`, `mid` or `premium` based on price) with a SQL transform, and writes the result into the `iceberg_db.products` Iceberg table in the `iceberg` bucket using a Hadoop catalog. The write uses `DROP_DATA`, so re-running keeps the table at the same row count rather than appending.
+
+Read the Iceberg table back to confirm the transformed rows landed:
+
+```
+make verify-iceberg
+```
+
+This runs `seatunnel/iceberg-to-console.conf` and prints the Iceberg rows, including the new column:
+
+```
+output rowType: id<INT>, name<STRING>, price<Decimal(10, 2)>, price_band<STRING>
+SeaTunnelRow#kind=INSERT : 1, Organic Almond Butter, 10.99, premium
+SeaTunnelRow#kind=INSERT : 2, Whole Grain Bread, 3.49, budget
+SeaTunnelRow#kind=INSERT : 3, Cold Pressed Olive Oil, 15.99, premium
+...
+Total Read Count : 30
+```
+
+The full path is now `MariaDB -> Flink CDC -> Paimon on MinIO -> SeaTunnel -> Iceberg on MinIO`.
+
 To tear everything down and remove the volumes, run `make down`.
 
 ### Smoke test the SeaTunnel image
