@@ -1,7 +1,11 @@
-.PHONY: up submit verify cdc-change seatunnel-read seatunnel-iceberg verify-iceberg logs down
+.PHONY: jars up submit verify cdc-change seatunnel-read seatunnel-iceberg verify-iceberg logs down
+
+# Download the Flink, Paimon and CDC connector jars (verified against pinned checksums).
+jars:
+	./scripts/download_jars.sh
 
 # Start the core stack: MariaDB, MinIO, the bucket init step and the Flink cluster.
-up:
+up: jars
 	docker compose up -d
 
 # Submit the CDC pipeline (jobs/job.sql) to Flink once the stack is ready.

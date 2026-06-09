@@ -57,10 +57,10 @@ services:
     volumes:
       - ./jars/flink-sql-connector-mysql-cdc-2.4.1.jar:/opt/flink/lib/flink-sql-connector-mysql-cdc-2.4.1.jar
       - ./jars/flink-connector-jdbc-3.1.0-1.17.jar:/opt/flink/lib/flink-connector-jdbc-3.1.0-1.17.jar
-      - ./jars/paimon-flink-1.17-0.6-20231027.002013-49.jar:/opt/flink/lib/paimon-flink-1.17-0.6-20231027.002013-49.jar
+      - ./jars/paimon-flink-1.17-0.6.0-incubating.jar:/opt/flink/lib/paimon-flink-1.17-0.6.0-incubating.jar
       - ./jars/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar:/opt/flink/lib/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar
       - ./jars/flink-s3-fs-hadoop-1.17.1.jar:/opt/flink/plugins/s3-fs-hadoop/flink-s3-fs-hadoop-1.17.1.jar
-      - ./jars/paimon-s3-0.6-20231027.002013-54.jar:/opt/flink/lib/paimon-s3-0.6-20231027.002013-54.jar
+      - ./jars/paimon-s3-0.6.0-incubating.jar:/opt/flink/lib/paimon-s3-0.6.0-incubating.jar
       - ./jobs:/opt/flink/jobs
     deploy:
           replicas: 1
@@ -84,10 +84,10 @@ services:
     volumes:
       - ./jars/flink-sql-connector-mysql-cdc-2.4.1.jar:/opt/flink/lib/flink-sql-connector-mysql-cdc-2.4.1.jar
       - ./jars/flink-connector-jdbc-3.1.0-1.17.jar:/opt/flink/lib/flink-connector-jdbc-3.1.0-1.17.jar
-      - ./jars/paimon-flink-1.17-0.6-20231027.002013-49.jar:/opt/flink/lib/paimon-flink-1.17-0.6-20231027.002013-49.jar
+      - ./jars/paimon-flink-1.17-0.6.0-incubating.jar:/opt/flink/lib/paimon-flink-1.17-0.6.0-incubating.jar
       - ./jars/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar:/opt/flink/lib/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar
       - ./jars/flink-s3-fs-hadoop-1.17.1.jar:/opt/flink/plugins/s3-fs-hadoop/flink-s3-fs-hadoop-1.17.1.jar
-      - ./jars/paimon-s3-0.6-20231027.002013-54.jar:/opt/flink/lib/paimon-s3-0.6-20231027.002013-54.jar
+      - ./jars/paimon-s3-0.6.0-incubating.jar:/opt/flink/lib/paimon-s3-0.6.0-incubating.jar
     deploy:
           replicas: 2
 
